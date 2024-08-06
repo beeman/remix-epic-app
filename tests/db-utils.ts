@@ -116,22 +116,27 @@ export async function img({
 }
 
 export async function cleanupDb(prisma: PrismaClient) {
-	const tables = await prisma.$queryRaw<
-		{ name: string }[]
-	>`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_prisma_migrations';`
+	const tables = await prisma.$queryRaw<{ table_name: string }[]>`
+SELECT table_name 
+FROM information_schema.tables 
+WHERE table_schema = 'public' 
+  AND table_type = 'BASE TABLE' 
+  AND table_name NOT LIKE 'sql_%'
+  AND table_name NOT LIKE '_prisma_migrations';`
 
 	try {
 		// Disable FK constraints to avoid relation conflicts during deletion
-		await prisma.$executeRawUnsafe(`PRAGMA foreign_keys = OFF`)
+		await prisma.$executeRawUnsafe(`SET session_replication_role = 'replica'`)
 		await prisma.$transaction([
 			// Delete all rows from each table, preserving table structures
-			...tables.map(({ name }) =>
+			...tables.map(({ table_name: name }) =>
 				prisma.$executeRawUnsafe(`DELETE from "${name}"`),
 			),
 		])
 	} catch (error) {
 		console.error('Error cleaning up database:', error)
 	} finally {
-		await prisma.$executeRawUnsafe(`PRAGMA foreign_keys = ON`)
+		await prisma.$executeRawUnsafe(`SET session_replication_role = 'origin'`)
+		// await prisma.$executeRawUnsafe(`PRAGMA foreign_keys = ON`)
 	}
 }

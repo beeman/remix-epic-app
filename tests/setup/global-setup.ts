@@ -1,25 +1,11 @@
-import path from 'node:path'
 import { execaCommand } from 'execa'
-import fsExtra from 'fs-extra'
-
-export const BASE_DATABASE_PATH = path.join(
-	process.cwd(),
-	`./tests/prisma/base.db`,
-)
+import 'dotenv/config'
 
 export async function setup() {
-	const databaseExists = await fsExtra.pathExists(BASE_DATABASE_PATH)
+	const databaseUrl = process.env.DATABASE_URL
 
-	if (databaseExists) {
-		const databaseLastModifiedAt = (await fsExtra.stat(BASE_DATABASE_PATH))
-			.mtime
-		const prismaSchemaLastModifiedAt = (
-			await fsExtra.stat('./prisma/schema.prisma')
-		).mtime
-
-		if (prismaSchemaLastModifiedAt < databaseLastModifiedAt) {
-			return
-		}
+	if (!databaseUrl) {
+		throw new Error('DATABASE_URL is not set')
 	}
 
 	await execaCommand(
@@ -28,7 +14,7 @@ export async function setup() {
 			stdio: 'inherit',
 			env: {
 				...process.env,
-				DATABASE_URL: `file:${BASE_DATABASE_PATH}`,
+				DATABASE_URL: databaseUrl,
 			},
 		},
 	)

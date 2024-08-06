@@ -22,19 +22,25 @@ jobs:
       - name: ⬇️ Checkout repo
         uses: actions/checkout@v4
 
+      - name: 📥 Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
       - name: ⎔ Setup node
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'pnpm'
 
-      - name: 📥 Download deps
-        uses: bahmutov/npm-install@v1
+      - name: 🚚 Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: 🖼 Build icons
-        run: npm run build:icons
+        run: pnpm run build:icons
 
       - name: 🔬 Lint
-        run: npm run lint
+        run: pnpm run lint
 
   typecheck:
     name: ʦ TypeScript
@@ -43,16 +49,22 @@ jobs:
       - name: ⬇️ Checkout repo
         uses: actions/checkout@v4
 
+      - name: 📥 Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
       - name: ⎔ Setup node
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'pnpm'
 
-      - name: 📥 Download deps
-        uses: bahmutov/npm-install@v1
+      - name: 🚚 Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: 🖼 Build icons
-        run: npm run build:icons
+        run: pnpm run build:icons
 
       - name: 🔎 Type check
         run: npm run typecheck --if-present
@@ -60,30 +72,62 @@ jobs:
   vitest:
     name: ⚡ Vitest
     runs-on: ubuntu-22.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: remix-epic-app
+          POSTGRES_PASSWORD: remix-epic-app
+          POSTGRES_DB: remix-epic-app
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
       - name: ⬇️ Checkout repo
         uses: actions/checkout@v4
+
+      - name: 📥 Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
 
       - name: ⎔ Setup node
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'pnpm'
 
-      - name: 📥 Download deps
-        uses: bahmutov/npm-install@v1
+      - name: 🚚 Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: 🏄 Copy test env vars
         run: cp .env.example .env
 
       - name: 🖼 Build icons
-        run: npm run build:icons
+        run: pnpm run build:icons
+
+      - name: 🛠 Setup Database
+        run: pnpx prisma migrate deploy && pnpx prisma db push
+
+      - name: 🌱 Seed Database
+        run: pnpx prisma db seed
+        env:
+          MINIMAL_SEED: true
 
       - name: ⚡ Run vitest
-        run: npm run test -- --coverage
+        run: pnpm run test -- --coverage
 
   playwright:
     name: 🎭 Playwright
     runs-on: ubuntu-22.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: remix-epic-app
+          POSTGRES_PASSWORD: remix-epic-app
+          POSTGRES_DB: remix-epic-app
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     timeout-minutes: 60
     steps:
       - name: ⬇️ Checkout repo
@@ -92,41 +136,36 @@ jobs:
       - name: 🏄 Copy test env vars
         run: cp .env.example .env
 
+      - name: 📥 Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
       - name: ⎔ Setup node
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'pnpm'
 
-      - name: 📥 Download deps
-        uses: bahmutov/npm-install@v1
+      - name: 🚚 Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: 📥 Install Playwright Browsers
-        run: npm run test:e2e:install
+        run: pnpm run test:e2e:install
 
       - name: 🛠 Setup Database
-        run: npx prisma migrate deploy
-
-      - name: 🏦 Cache Database
-        id: db-cache
-        uses: actions/cache@v4
-        with:
-          path: prisma/data.db
-          key:
-            db-cache-schema_${{ hashFiles('./prisma/schema.prisma')
-            }}-migrations_${{ hashFiles('./prisma/migrations/*/migration.sql')
-            }}
+        run: pnpx prisma migrate deploy && pnpx prisma db push
 
       - name: 🌱 Seed Database
-        if: steps.db-cache.outputs.cache-hit != 'true'
-        run: npx prisma db seed
+        run: pnpx prisma db seed
         env:
           MINIMAL_SEED: true
 
       - name: 🏗 Build
-        run: npm run build
+        run: pnpm run build
 
       - name: 🎭 Playwright tests
-        run: npx playwright test
+        run: pnpx playwright test
 
       - name: 📊 Upload report
         uses: actions/upload-artifact@v4

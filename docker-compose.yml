@@ -1,0 +1,11 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_DB: remix-epic-app
+      POSTGRES_USER: remix-epic-app
+      POSTGRES_PASSWORD: remix-epic-app
+    volumes:
+      - ./tmp/postgres:/var/lib/postgresql/data
